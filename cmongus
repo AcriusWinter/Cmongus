@@ -1,0 +1,226 @@
+#!/bin/bash
+
+orig_stty=$(stty -g)    # store terminal state
+
+cflag=0
+
+# pick up flags and corresponding inputs
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		-c|--color)
+                
+		if [[ -z "${2:-}" || "$2" == -* ]]; then
+                    echo "Error: --color requires a value" >&2
+                    exit 1
+                fi
+		
+		COLOR="$2"
+		cflag=1
+		shift 2
+		;;
+	*)
+		shift
+		;;
+	esac
+done
+
+frame1="
+                    ##############
+                ####              ####
+               #                      #
+               #   \033[36m##########################\033[0m
+             #   \033[36m#\033[97m  +++++++++++++++          \033[36m#\033[0m
+          ####   \033[36m#\033[97m +                         \033[36m#\033[0m
+         #   #   \033[36m#\033[97m +                         \033[36m#\033[0m
+         #   #    \033[36m###########################\033[0m
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+          ####                          #
+              ##                        #
+                #######        #########
+                  &  %%%       %%% &
+                  &  %%        %%   &
+                  &  %%        %%   &
+                   &&%%        %%&&&&
+                     %%        %%
+                     %%%%%%%%%%%%"
+
+
+frame2="                    ##############
+                ####              ####
+               #                      #
+               #   \033[36m##########################\033[0m
+             #   \033[36m#\033[97m  +++++++++++++++          \033[36m#\033[0m
+          ####   \033[36m#\033[97m +                         \033[36m#\033[0m
+         #   #   \033[36m#\033[97m +                         \033[36m#\033[0m
+         #   #    \033[36m###########################\033[0m
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+          %%%%                          #
+       %%%    %%%%%%                    #
+       %            %%%%%%##          ##
+       %%              %%  &&         &&
+         %%%%%      %%%      &&         &&
+              %%%%%%%          &&         &&
+                                 &&         &&
+                                   &&       &&
+                                     &&&&&&&"
+
+frame3="
+                    ##############
+                ####              ####
+               #                      #
+               #   \033[36m##########################\033[0m
+             #   \033[36m#\033[97m  +++++++++++++++          \033[36m#\033[0m
+          ####   \033[36m#\033[97m +                         \033[36m#\033[0m
+         #   #   \033[36m#\033[97m +                         \033[36m#\033[0m
+         #   #    \033[36m###########################\033[0m
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+          ####                          #
+         %%%%%%%%%%%                    #
+        %%                %%############
+        %                %%%     &&
+        %%         %%%%%%&       &&
+         %%%%%%%%%%%    &&       &&
+                        &&       &&
+                        &&&&&&&&&&&"
+
+frame4="                    ##############
+                ####              ####
+               #                      #
+               #  \033[36m###########################\033[0m
+             #   \033[36m#\033[97m  +++++++++++++++          \033[36m#\033[0m
+          ####   \033[36m#\033[97m +                         \033[36m#\033[0m
+         #   #   \033[36m#\033[97m +                         \033[36m#\033[0m
+         #   #    \033[36m###########################\033[0m
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+         #   #                          #
+          %%%                           #
+       %%    %%%%%%%                    #
+       %                %%%##############&&&
+       %%%%              %         &&       &&&
+           %%%%       %%            &&         &&
+               %%%%%%%                &&        &&
+                                       &&&&&&&&&&"    
+
+# list of all frames
+frames=(
+"$frame1"
+"$frame2"
+"$frame3"
+"$frame4"
+)
+
+# if not set color, set default to white
+if [[ -z "$COLOR" ]]; then
+        COLOR="white"
+fi
+
+# define selectable colors
+green='\033[0;32m'
+red='\033[0;31m'
+blue='\033[0;34m'
+yellow='\033[0;33m'
+cyan='\033[0;36m'
+black='\033[0;30m'
+purple='\033[0;35m'
+white='\033[0;37m'
+pink='\033[95m'
+grey='\033[90m'
+
+COLOR="${COLOR,,}"
+BASE="${!COLOR}" 
+
+# catch color misinputs or errors
+if [[ -z "$BASE" ]]; then
+    echo "--color error: Please choose a valid color from the following: green, red, blue, yellow, cyan, black, purple, white, pink or grey"
+    exit 1
+fi
+
+RESET='\033[0m'
+
+# If --color/-c is defined, change the body color
+
+if [ "$cflag" -eq 1 ]; then
+
+    for i in "${!frames[@]}"; do
+        frames[$i]="${frames[$i]//\\033[0m/\\033[0m${BASE}}"
+    done
+
+    for i in "${!frames[@]}"; do
+      frames[$i]="${frames[$i]//\\033[37m/${BASE}}"
+    done
+
+fi
+
+handler() {
+    stty "$orig_stty" 2>/dev/null    # restore original terminal state
+    printf "\033[?25h\033[0m\n"   # show cursor + reset + newline
+    clear
+    exit
+}
+
+trap handler INT
+
+echo -ne "\033[?25l"     # hide cursor
+
+speed=0.2
+delay=0.4
+
+stty -echo	# prevent typed numbers from appearing on screen
+
+num=1	# number which helps determine what delay to use for printing
+
+while true; do
+    for frame in "${frames[@]}"; do
+        
+        read -rsn1 -t 0.05 input
+
+	if [[ "$input" =~ [0-9] ]]; then
+            case "$input" in
+		0) speed=0.01 ;;
+		1) speed=0.02 ;;
+                2) speed=0.04 ;;
+                3) speed=0.06 ;;
+                4) speed=0.08 ;;
+                5) speed=0.10 ;;
+                6) speed=0.14 ;;
+                7) speed=0.18 ;;
+                8) speed=0.24 ;;
+                9) speed=0.30 ;;
+	    esac
+	fi
+
+	clear
+        echo -e "${BASE}$frame"
+	if [ $num = 1 ]; then 
+		sleep "$speed" 
+		num=0
+	else
+		delay=$(awk -v s="$speed" 'BEGIN { print s * 2 }')
+		sleep "$delay"
+		num=1	
+	fi
+    done
+done
